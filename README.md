@@ -58,6 +58,47 @@ func main() {
 }
 ```
 
+### Daemon (gopher-cached)
+
+The project includes a standalone HTTP daemon that exposes the KV store over a REST API.
+
+#### Endpoints
+
+* **GET /health**: Heartbeat check
+* **GET /foo**: Get data from key 'foo'
+* **POST /foo**: Insert data for key 'foo', value is body
+* **PUT /foo**: Update data for key 'foo', value is body
+* **DELETE /foo**: Delete key/value for key 'foo'
+
+#### Running the Daemon
+```bash
+# Default: DiskStore at ./data on port 8080
+./bin/gopher-cached
+
+# MemoryStore on custom port with verbose logging
+./bin/gopher-cached -mem -port 9000 -v
+```
+
+#### Systemd Service
+```toml
+# /etc/systemd/system/gopher-cached.service
+[Unit]
+Description=Gopher Cache Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gopher-cached -port 8080 -dir /var/lib/gopher-cache -v
+Restart=on-failure
+User=nobody
+Group=nobody
+# Ensure the directory exists and is writable by the user above
+# sudo mkdir -p /var/lib/gopher-cache && sudo chown nobody:nobody /var/lib/gopher-cache
+
+[Install]
+WantedBy=multi-user.target
+```
+
 ### Installation
 
 #### Requirements
@@ -72,6 +113,9 @@ Clone the repository:
 
 Compile the main application:
 `make`
+
+(Optional) Compile the daemon:
+`make daemon`
 
 (Optional) Compile the performance benchmark tool:
 `make benchmark`
@@ -90,7 +134,7 @@ make benchmark
 Clean build artifacts and test databases:
 `make clean`
 
-Install to system:
+Install to system (daemon):
 `sudo make install` (Defaults to /usr/local/bin)
 
 ## Contributing
