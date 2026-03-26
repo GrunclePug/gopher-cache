@@ -1,0 +1,14 @@
+# Binary
+bin/
+
+# Env
+.env
+*.env
+
+# Database
+bench_db/
+test_db/
+
+# OS Specific
+.DS_Store
+Thumbs.db
