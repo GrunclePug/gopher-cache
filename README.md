@@ -12,6 +12,10 @@ A thread-safe KV store for Go. Supports swappable RAM and Disk backends through 
 * **MemoryStore:** High-performance `map` implementation with `RWMutex` for concurrent read/write safety.
 * **DiskStore:** Filesystem-backed persistence (one file per key) with automated directory management.
 * **Concurrency-Safe:** Designed to handle multiple simultaneous goroutines.
+* **Namespaced Buckets:** Use trailing slashes (`/foo/`) to perform recursive GET or DELETE operations.
+* **Content Negotiation:** Request `application/json` via headers to get structured data trees instead of raw bytes.
+* **Ingress Validation:** Automatically rejects malformed JSON if the `Content-Type` header is set.
+* **Minimal:** No external dependencies. Uses Go 1.22+ standard library routing.
 
 ## Usage
 
@@ -33,7 +37,7 @@ func main() {
     }
 
     // Put: Create or Overwrite a key
-    key, val := "foo", []byte("payload")
+    key, val := "foo", []byte("payload") // Bucket Value Example: "foo/status"
     if err := db.Put(key, val); err != nil {
         log.Fatal(err)
     }
@@ -55,6 +59,14 @@ func main() {
     if err := db.Delete(key); err != nil {
         log.Fatal(err)
     }
+
+    // GetBucket: Retrieve all keys under a prefix
+    data, err := db.GetBucket("foo/")
+        if err == nil {
+            for k, v := range data {
+            fmt.Printf("%s: %s\n", k, string(v)) // Or unmarshal if JSON
+        }
+    }
 }
 ```
 
@@ -64,11 +76,34 @@ The project includes a standalone HTTP daemon that exposes the KV store over a R
 
 #### Endpoints
 
-* **GET /health**: Heartbeat check
-* **GET /foo**: Get data from key 'foo'
-* **POST /foo**: Insert data for key 'foo', value is body
-* **PUT /foo**: Update data for key 'foo', value is body
-* **DELETE /foo**: Delete key/value for key 'foo'
+* **GET /health:** Heartbeat check.
+* **GET /{key}:** Get raw data.
+* **GET /{key} (Accept: application/json):** Returns a JSON object. If the value is a string, it's wrapped; if it's valid JSON, it's promoted to a nested object.
+* **GET /{bucket}/:** Returns a list of key: value pairs.
+* **GET /{bucket}/ (Accept: application/json):** Returns a single JSON tree of the entire bucket.
+* **POST/PUT /{key}:** Store data. Validates JSON if Content-Type: application/json is used.
+* **DELETE /{key}:** Delete a single key.
+* **DELETE /{bucket}/:** Recursively delete everything in that namespace.
+
+#### Examples
+
+Store a value:
+
+`curl -X POST -d "running" http://localhost:8080/nodes/srv1`
+
+
+Retrieve as JSON:
+
+`curl -H "Accept: application/json" http://localhost:8080/nodes/srv1`
+
+Output: `{"value": "running"}`
+
+
+Get a whole bucket as a JSON tree:
+
+`curl -H "Accept: application/json" http://localhost:8080/nodes/`
+
+Output: `{"nodes/srv1": "running", "nodes/srv2": {"load": 0.5}}`
 
 #### Running the Daemon
 ```bash
@@ -77,6 +112,9 @@ The project includes a standalone HTTP daemon that exposes the KV store over a R
 
 # MemoryStore on custom port with verbose logging
 ./bin/gopher-cached -mem -port 9000 -v
+
+# Help command to see all available flags
+./bin/gopher-cached --help
 ```
 
 #### Systemd Service

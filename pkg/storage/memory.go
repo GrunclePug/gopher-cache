@@ -1,6 +1,9 @@
 package storage
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 type MemoryStore struct {
 	sync.RWMutex
@@ -14,6 +17,10 @@ func NewMemoryStore() *MemoryStore {
 }
 
 func (m *MemoryStore) Put(key string, value []byte) error {
+	if IsBucket(key) {
+		return ErrInvalidKey
+	}
+
 	m.Lock()
 	defer m.Unlock()
 
@@ -22,6 +29,10 @@ func (m *MemoryStore) Put(key string, value []byte) error {
 }
 
 func (m *MemoryStore) Update(key string, value []byte) error {
+	if IsBucket(key) {
+		return ErrInvalidKey
+	}
+
 	m.Lock()
 	defer m.Unlock()
 
@@ -48,6 +59,33 @@ func (m *MemoryStore) Delete(key string) error {
 	m.Lock()
 	defer m.Unlock()
 
+	// Handle Bucket Delete (Recursive)
+	if IsBucket(key) {
+		for k := range m.data {
+			if strings.HasPrefix(k, key) {
+				delete(m.data, k)
+			}
+		}
+		return nil
+	}
+
+	// Handle Single Key Delete
+	if _, ok := m.data[key]; !ok {
+		return ErrNotFound
+	}
 	delete(m.data, key)
 	return nil
+}
+
+func (m *MemoryStore) GetBucket(prefix string) (map[string][]byte, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	results := make(map[string][]byte)
+	for k, v := range m.data {
+		if strings.HasPrefix(k, prefix) {
+			results[k] = v
+		}
+	}
+	return results, nil
 }

@@ -8,6 +8,7 @@ bin/
 # Database
 bench_db/
 test_db/
+data/
 
 # OS Specific
 .DS_Store
